@@ -1,0 +1,60 @@
+#####################Initialization####################
+
+units		     real
+dimension        3
+boundary         p p f
+atom_style       charge
+
+####################Aotm Definition###################
+
+read_data        box.data
+restart          100000            restart.*
+#read_restart    restart.0000
+
+#############Define Intraction Potential##############
+
+pair_style       reax/c lmp_control
+pair_coeff       * *    ffield_PtNiCHO_2016 H O Pt
+fix              1      all qeq/reax 1 0.0 10.0 1e-6 reax/c
+
+#minimize 1.0e-5 1.0e-5 100 1000
+
+###########Setting and Output of Simulation###########
+ 
+group            HO   type 1 2
+group            Pt   type 3
+group            Ox   type 2
+
+
+
+velocity         HO   create 298.0 123 rot yes mom yes dist gaussian
+fix              nvt  HO     nvt temp 298 298 10
+fix              fix  Pt     rigid single
+
+fix              z all      wall/reflect zlo EDGE zhi EDGE
+
+fix              f Pt       setforce 0.0 0.0 0.0
+fix              2 HO       reaxff/bonds 1000 bonds.reaxff
+fix              3 HO       reaxff/species 10 10 100 species.out
+
+compute          potential  all   pe/atom 
+fix              potential  all   ave/atom 10 10 100 c_potential
+
+
+timestep         0.5
+
+neighbor         2.0 bin
+neigh_modify     every 1 delay 0 check yes
+
+thermo           1000
+thermo_style     custom step etotal pe ke temp
+thermo_modify    flush yes
+
+dump             1 all xyz 1000 dump.xyz
+dump             2 all custom 1000 dump.reax.tatb id type element q x y z f_potential #mu fx fy fz  temperature
+dump_modify      1 element H O Pt
+dump             3 all dcd 1000 dump.dcd
+dump_modify      3 unwrap yes
+write_data       config.data
+
+run              3000000
